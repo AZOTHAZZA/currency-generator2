@@ -1,2 +1,2 @@
-# currency-generator2
+# currency_generator
 test
