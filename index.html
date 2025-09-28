@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通貨生成所（多通貨＋AI提案）</title>
+<style>
+body { font-family: sans-serif; padding: 10px; }
+button { padding: 6px 12px; margin: 4px; border-radius: 6px; cursor: pointer; }
+#balances div { margin-bottom: 6px; }
+#chartContainer { max-width: 400px; margin-top: 20px; }
+#aiSuggestion { margin-top: 10px; font-weight: bold; color: #007bff; }
+</style>
+</head>
+<body>
+
+<h1>通貨生成所 - 多通貨対応</h1>
+
+<div id="modeSwitch">
+  <button id="offlineBtn">オフチェーン</button>
+  <button id="onlineBtn">オンチェーン</button>
+</div>
+
+<h2>残高</h2>
+<div id="balances"></div>
+
+<h2>操作</h2>
+<select id="currencySelect">
+  <option value="JPY">日本円 (JPY)</option>
+  <option value="USD">米ドル (USD)</option>
+  <option value="EUR">ユーロ (EUR)</option>
+  <option value="BTC">ビットコイン (BTC)</option>
+  <option value="ETH">イーサリアム (ETH)</option>
+  <option value="MATIC">MATIC (ガス)</option>
+</select>
+<input type="number" id="amountInput" placeholder="数量" step="any">
+<button id="generateBtn">つくる</button>
+<button id="reduceBtn">へらす</button>
+<button id="sendBtn">わたす</button>
+
+<div id="aiSuggestion">AI提案: まだありません</div>
+
+<div id="chartContainer">
+  <canvas id="balanceChart"></canvas>
+</div>
+
+<script src="libs/chart.min.js"></script>
+<script>
+let balances = { JPY: 100000, USD: 500, EUR: 200, BTC: 0.01, ETH: 0.05, MATIC: 10 };
+let mode = 'offline'; // 'offline' or 'online'
+let fullHistory = [];
+
+const balancesDiv = document.getElementById('balances');
+function renderBalances() {
+  balancesDiv.innerHTML = '';
+  for(const [cur, val] of Object.entries(balances)){
+    balancesDiv.innerHTML += `<div>${cur}: ${val}</div>`;
+  }
+}
+renderBalances();
+
+document.getElementById('offlineBtn').addEventListener('click', ()=>{ mode='offline'; alert('オフチェーンモード'); });
+document.getElementById('onlineBtn').addEventListener('click', ()=>{ mode='online'; alert('オンチェーンモード'); });
+
+function performAction(action){
+  const currency = document.getElementById('currencySelect').value;
+  let amount = parseFloat(document.getElementById('amountInput').value);
+  if(isNaN(amount) || amount <=0){ alert('正しい数量を入力してください'); return; }
+
+  if(action==='つくる') balances[currency] += amount;
+  if(action==='へらす'){ if(balances[currency]<amount) amount=balances[currency]; balances[currency]-=amount; }
+  if(action==='わたす'){
+    if(balances[currency]<amount){ alert('残高不足'); return; }
+    balances[currency]-=amount;
+    alert(`${amount} ${currency} を送金（サンプル）`);
+  }
+
+  // オンチェーン時はガス確認
+  if(mode==='online' && (currency!=='MATIC' && currency!=='ETH')){
+    const gasCurrency = 'MATIC';
+    if(balances[gasCurrency]<0.01){ alert('ガス残高不足'); return; }
+  }
+
+  // AI提案サンプル（ランダム）
+  const aiSuggested = Math.random()<0.5;
+  fullHistory.push({action, currency, amount, ai: aiSuggested});
+  updateAISuggestion();
+  renderBalances();
+  updateChart();
+}
+
+document.getElementById('generateBtn').addEventListener('click', ()=>performAction('つくる'));
+document.getElementById('reduceBtn').addEventListener('click', ()=>performAction('へらす'));
+document.getElementById('sendBtn').addEventListener('click', ()=>performAction('わたす'));
+
+function updateAISuggestion(){
+  const lastAction = fullHistory[fullHistory.length-1];
+  const suggestionText = lastAction.ai ? 
+    `AI提案: この操作は採用推奨 (${lastAction.amount} ${lastAction.currency})` :
+    `AI提案: この操作は慎重推奨 (${lastAction.amount} ${lastAction.currency})`;
+  document.getElementById('aiSuggestion').textContent = suggestionText;
+}
+
+// Chart.js残高表示
+let chartInstance;
+function updateChart(){
+  const ctx = document.getElementById('balanceChart').getContext('2d');
+  if(chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels: Object.keys(balances),
+      datasets:[{
+        label:'残高',
+        data: Object.values(balances),
+        backgroundColor:['#ff4500','#1e90ff','#32cd32','#ffa500','#8a2be2','#00ced1']
+      }]
+    },
+    options:{responsive:true, plugins:{legend:{display:false}}}
+  });
+}
+
+// 初期表示
+renderBalances();
+updateChart();
+</script>
+
+</body>
+</html>
